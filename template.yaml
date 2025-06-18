@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  ImageAutomationLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ImageAutomation
+      Handler: app.lambda_handler
+      CodeUri: ImageAutomation/
+      Runtime: python3.12
+      Timeout: 30
+      MemorySize: 128
+      Role: !GetAtt ImageAutomationRole.Arn
+      Environment:
+        Variables:
+          SECRET_NAME: "google_drive_api"
+          REGION_NAME: "us-east-1"
+  ImageAutomationPermissionFromS3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ImageAutomationLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: arn:aws:s3:::masrikdahir-image
+
+  ImageAutomationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ImageAutomationRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ImageAutomationSecretsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: "secretsmanager:GetSecretValue"
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:google_drive_api-*"
+        - PolicyName: ImageAutomationS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource:
+                  - "arn:aws:s3:::masrikdahir"
+                  - "arn:aws:s3:::masrikdahir/*"
+        - PolicyName: ImageAutomationDynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - "arn:aws:dynamodb:*:*:table/*"
+        - PolicyName: CloudWatchLogsFullAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:*
+                  - cloudwatch:GenerateQuery
+                  - cloudwatch:GenerateQueryResultsSummary
+                Resource:
+                  - "*"
+
+Outputs:
+  ImageAutomationLambdaFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt ImageAutomationLambda.Arn
